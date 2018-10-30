@@ -1,6 +1,9 @@
 import scrapy
 import pprint
 import urllib.request
+import os
+import os.path
+import subprocess
 from datetime import datetime, timedelta
 import dateutil.parser
 pp = pprint.PrettyPrinter(indent=4)
@@ -43,13 +46,18 @@ class ImagesSpider(scrapy.Spider):
             yield scrapy.Request(chapter_link, callback=self.parse_chapters)
     
     def parse_chapters(self, response):
-        while not (response.url.endswith("end")) :
+        cwd = os.getcwd()
+        
+        while not (response.url.endswith("end")):
             visited.add(response.url)
             url = response.url.split('/')
             img = response.xpath('//*[@id="manga-page"]/@src').extract()
-            print("img = " + str(img))
-
-            urllib.request.urlretrieve("https:" + img[0], url[-4] + url[-1] + ".jpg")
+            newcwd = cwd+ '/dl/' + url[-4] + url[-3] + '/'
+            img_url = newcwd + url[-4] + url[-1] + ".jpg"
+            print("img = " + newcwd)
+            if not os.path.exists(cwd + '/dl/' + url[-4] + url[-3] + '/'):
+                subprocess.call("mkdir " + url[-4] + url[-3])
+            urllib.request.urlretrieve("https:" + img[0], img_url)
 
             try:
                 url[-1] = str(int(url[-1]) + 1)
@@ -57,8 +65,6 @@ class ImagesSpider(scrapy.Spider):
             except:
                 return
             url = "/".join(url)
-            print(url)
-            print(visited)
             try:
                 return scrapy.Request(url, callback=self.parse_chapters)
             except:
