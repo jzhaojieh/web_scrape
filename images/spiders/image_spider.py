@@ -6,12 +6,15 @@ import os.path
 import subprocess
 from datetime import datetime, timedelta
 import dateutil.parser
+import smtplib
 pp = pprint.PrettyPrinter(indent=4)
 visited = set()
 
 spec = {'Today':datetime.today(), '1 day ago':datetime.today() - timedelta(days = 1), '2 days ago':datetime.today() - timedelta(days = 2)}
 class ImagesSpider(scrapy.Spider):
     name = "images"
+    email = "jzhaojieh@gmail.com"
+
     def start_requests(self):
         urls = [
             'https://readms.net/',
@@ -42,12 +45,12 @@ class ImagesSpider(scrapy.Spider):
         # pp.pprint(d)
         for k, v in res.items():
             chapter_link = response.url + v[1:]
-            print(chapter_link)
+            self.sendEmail(self.email, k + "has been downloaded", "")
+            print(k, v, chapter_link)
             yield scrapy.Request(chapter_link, callback=self.parse_chapters)
     
     def parse_chapters(self, response):
-        cwd = os.getcwd()
-        
+        cwd = os.getcwd() 
         while not (response.url.endswith("end")):
             visited.add(response.url)
             url = response.url.split('/')
@@ -55,18 +58,42 @@ class ImagesSpider(scrapy.Spider):
             newcwd = cwd+ '/dl/' + url[-4] + url[-3] + '/'
             img_url = newcwd + url[-4] + url[-1] + ".jpg"
             print("img = " + newcwd)
+            # Make new dir to store chapter images
             if not os.path.exists(cwd + '/dl/' + url[-4] + url[-3] + '/'):
-                subprocess.call("mkdir " + url[-4] + url[-3])
-            urllib.request.urlretrieve("https:" + img[0], img_url)
-
+                s = "mkdir " + url[-4] + url[-3]
+                # subprocess.call("mkdir dl/" + url[-4] + url[-3], shell=True)
+            # urllib.request.urlretrieve("https:" + img[0], img_url)
+            # Check for end of chapter
             try:
                 url[-1] = str(int(url[-1]) + 1)
-                
             except:
                 return
             url = "/".join(url)
+            # Recurse until url no longer ends in a number
             try:
                 return scrapy.Request(url, callback=self.parse_chapters)
             except:
                 return
         return
+    def sendEmail(self, recipient, subject, body):
+        user = "mangascrape"
+        pwd = "badpassword123"
+
+        FROM = user
+        TO = recipient if isinstance(recipient, list) else [recipient]
+        SUBJECT = subject
+        TEXT = body
+
+        # Prepare actual message
+        message = """From: %s\nTo: %s\nSubject: %s\n\n%s
+        """ % (FROM, ", ".join(TO), SUBJECT, TEXT)
+        try:
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.ehlo()
+            server.starttls()
+            server.login(user, pwd)
+            server.sendmail(FROM, TO, message)
+            server.close()
+            print('successfully sent the mail')
+        except:
+            print("failed to send mail")
