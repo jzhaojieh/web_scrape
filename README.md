@@ -1,2 +1,2 @@
 # web_scrape
-scrapy crawl images
+Run 'scrapy crawl images' to start the image spider.
