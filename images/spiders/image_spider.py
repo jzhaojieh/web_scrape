@@ -23,8 +23,6 @@ class ImagesSpider(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.parse)
 
     def parse(self, response):
-        # pp.pprint(page)
-        # pp.pprint(response.body)
         d = {}
         res = {}
         releases = response.xpath('/html/body/div[3]/div[3]/div[2]/div/ul/li/a/text()').extract()
@@ -39,31 +37,35 @@ class ImagesSpider(scrapy.Spider):
                 d[chapter_name + chapter] = spec[days[i]]
                 # if days[i] == "Today":
                 res[(chapter_name + chapter)] = urls[i]
-                break
+                # break
             else:
                 d[chapter_name + chapter] = dateutil.parser.parse(days[i], ignoretz=True)
-        # pp.pprint(d)
+        pp.pprint(res)
         for k, v in res.items():
             chapter_link = response.url + v[1:]
-            self.sendEmail(self.email, k + "has been downloaded", "")
-            print(k, v, chapter_link)
+            self.sendEmail(self.email, k + " has been downloaded", "")
             yield scrapy.Request(chapter_link, callback=self.parse_chapters)
     
     def parse_chapters(self, response):
         cwd = os.getcwd() 
         while not (response.url.endswith("end")):
+            # avoid checking same urls more than once
             visited.add(response.url)
             url = response.url.split('/')
+            # Handle redirect to url not found
+            if ("error" in url): return 
             img = response.xpath('//*[@id="manga-page"]/@src').extract()
+            # current working dir
             newcwd = cwd+ '/dl/' + url[-4] + url[-3] + '/'
+            # dir to save the new image file
             img_url = newcwd + url[-4] + url[-1] + ".jpg"
-            print("img = " + newcwd)
-            # Make new dir to store chapter images
+            # make new dir to store chapter images if not found
             if not os.path.exists(cwd + '/dl/' + url[-4] + url[-3] + '/'):
                 s = "mkdir " + url[-4] + url[-3]
-                # subprocess.call("mkdir dl/" + url[-4] + url[-3], shell=True)
-            # urllib.request.urlretrieve("https:" + img[0], img_url)
-            # Check for end of chapter
+                subprocess.call("mkdir dl/" + url[-4] + url[-3], shell=True)
+            # download the images to local folder
+            urllib.request.urlretrieve("https:" + img[0], img_url)
+            # check for end of chapter
             try:
                 url[-1] = str(int(url[-1]) + 1)
             except:
